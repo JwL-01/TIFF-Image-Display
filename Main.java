@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+
 import static java.lang.System.exit;
 import static javax.swing.JOptionPane.showOptionDialog;
 
@@ -16,8 +17,8 @@ public class Main {
 
     static public Color[] color = null;
 
+    static public int imageHeight = 0;
     static public int imageWidth = 0;
-    static public int imageLength = 0;
 
     static public java.util.List<Integer> stripOffsets = new ArrayList<Integer>();
     static int index;
@@ -51,26 +52,52 @@ public class Main {
             color = null;
 
             decode(filePath);
-            int printResult = 0;
+            int printOptionsResult = 0;
 
-            tiffImage = new BufferedImage(imageWidth, imageLength, BufferedImage.TYPE_INT_RGB);
+            tiffImage = new BufferedImage(imageHeight, imageWidth, BufferedImage.TYPE_INT_RGB);
             int num = 0;
-            for (int i = 0; i < imageLength; i++){
-                for (int k = 0; k < imageWidth; k++){
+            for (int i = 0; i < imageWidth; i++){
+                for (int k = 0; k < imageHeight; k++){
                     tiffImage.setRGB(k, i, color[num].getRGB());
                     num++;
                 }
             }
+            BufferedImage originalImage = new BufferedImage(tiffImage.getWidth(), tiffImage.getHeight(), tiffImage.getType());
+            BufferedImage greyTiffImage = new BufferedImage(tiffImage.getWidth(), tiffImage.getHeight(), tiffImage.getType());
+            BufferedImage halfBrightImage = new BufferedImage(tiffImage.getWidth(), tiffImage.getHeight(), tiffImage.getType());
+            BufferedImage orderedDitheringImage = new BufferedImage(tiffImage.getWidth(), tiffImage.getHeight(), tiffImage.getType());
+            BufferedImage autoLevelImage = new BufferedImage(tiffImage.getWidth(), tiffImage.getHeight(), tiffImage.getType());
 
-            printResult = printImageOptions();
+            originalImage = tiffImage;
+            SetToGreyScaleImage(greyTiffImage);
+            SetToHalfBrightImage(halfBrightImage);
+            SetToDitheredImage(orderedDitheringImage);
+            SetToAutoLevelImage(autoLevelImage);
 
+            printOptionsResult = printImageOptions(originalImage, greyTiffImage);
             // To open a new image press option 0 and clear the StripOffsets for the new image
-            if(printResult == 0){
+            if(printOptionsResult == 0){
                 stripOffsets.clear();
                 return;
             }
-            // To close the program press option 1
-            if(printResult == 1){
+
+            if(printOptionsResult == 1){
+                stripOffsets.clear();
+                printImageOptions(halfBrightImage, greyTiffImage);
+            }
+
+            if(printOptionsResult == 1){
+                stripOffsets.clear();
+                printImageOptions(greyTiffImage, orderedDitheringImage);
+            }
+
+            if(printOptionsResult == 1){
+                stripOffsets.clear();
+                printImageOptions(originalImage, autoLevelImage);
+            }
+
+            // To close the program press option 2
+            if(printOptionsResult == 2){
                 System.exit(0);
             }
         });
@@ -125,12 +152,141 @@ public class Main {
         }
     }
 
-    static public int printImageOptions()
+    public static void SetToHalfBrightImage(BufferedImage image){
+        for (int y = 0; y < image.getHeight(); y++){
+            for (int x = 0; x < image.getWidth(); x++){
+                int R = color[y * imageHeight + x].getRed();
+                int G = color[y * imageHeight + x].getGreen();
+                int B = color[y * imageHeight + x].getBlue();
+
+                R /= 2;
+                G /= 2;
+                B /= 2;
+                int newHalfRGB = (R << 16) | (G << 8) | B;
+
+                image.setRGB(x, y, newHalfRGB);
+            }
+        }
+    }
+
+    public static void SetToAutoLevelImage(BufferedImage image){
+
+        int[] min = {255, 255, 255};
+        int[] max = {0, 0, 0};
+
+        // Find the minimum and maximum values for each RGB channel
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int R = color[y * imageHeight + x].getRed();
+                int G = color[y * imageHeight + x].getGreen();
+                int B = color[y * imageHeight + x].getBlue();
+
+                min[0] = Math.min(min[0], R);
+                min[1] = Math.min(min[1], G);
+                min[2] = Math.min(min[2], B);
+
+                max[0] = Math.max(max[0], R);
+                max[1] = Math.max(max[1], G);
+                max[2] = Math.max(max[2], B);
+            }
+        }
+
+        // Print the minimum and maximum values for debugging
+//        System.out.println("Red Min: " + min[0] + ", Red Max: " + max[0]);
+//        System.out.println("Green Min: " + min[1] + ", Green Max: " + max[1]);
+//        System.out.println("Blue Min: " + min[2] + ", Blue Max: " + max[2]);
+
+        // Normalize and apply the auto-level adjustment
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int R = color[y * imageHeight + x].getRed();
+                int G = color[y * imageHeight + x].getGreen();
+                int B = color[y * imageHeight + x].getBlue();
+
+                R = normalize(R, min[0], max[0]);
+                G = normalize(G, min[1], max[1]);
+                B = normalize(B, min[2], max[2]);
+
+                int newRGB = (R << 16) | (G << 8) | B;
+                image.setRGB(x, y, newRGB);
+            }
+        }
+    }
+
+    private static int normalize(int value, int minValue, int maxValue){
+        double normalizedValue = (double)(value - minValue) / (double)(maxValue - minValue);
+        return (int)(normalizedValue * 255);
+    }
+
+    public static void SetToGreyScaleImage(BufferedImage image){
+        for (int y = 0; y < image.getHeight(); y++){
+            for (int x = 0; x < image.getWidth(); x++){
+                int R = color[y * imageHeight + x].getRed();
+                int G = color[y * imageHeight + x].getGreen();
+                int B = color[y * imageHeight + x].getBlue();
+
+                int Y = (int)(0.299 * R + 0.587 * G + 0.114 * B);
+                int greyScale  = (Y << 16) | (Y << 8) | Y;
+                image.setRGB(x, y, greyScale);
+            }
+        }
+    }
+
+    static public void SetToDitheredImage(BufferedImage image){
+        int x,y;
+        //dither matrix 1,3,0,2
+        int[][] ditherMatrix = {{1, 3}, {0, 2}};
+        int[][] originalSize = new int[imageWidth][imageHeight];
+
+        for(y = 0; y < image.getHeight(); y++) {
+            for (x = 0; x < image.getWidth(); x++) {
+                int R = color[y * imageHeight + x].getRed();
+                int G = color[y * imageHeight + x].getGreen();
+                int B = color[y * imageHeight + x].getBlue();
+
+                int temp = (int) (0.299 * R + 0.587 * G + 0.114 * B);
+                temp = (int) Math.floor(temp / (256.0 / 5));
+                originalSize[y][x] = temp;
+
+                if (originalSize[y][x] > ditherMatrix[x % 2][y % 2]){
+                    originalSize[y][x] = 255;
+                }
+                else
+                {
+                    originalSize[y][x] = 0;
+                }
+
+                temp = originalSize[y][x];
+                temp = (temp << 16) | (temp << 8) | temp;
+                image.setRGB(x, y, temp);
+            }
+        }
+    }
+
+    static public BufferedImage combineImages(BufferedImage image1, BufferedImage image2)
     {
-        ImageIcon imageIcon = new ImageIcon(tiffImage);
-        String[] options = {"Open New Image", "Exit"};
-        int dialogResult = showOptionDialog(null,null, "Display TIFF Image", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, imageIcon, options, options[0]);
-        return dialogResult;
+        ImageIcon imageIcon1 = new ImageIcon(image1);
+        ImageIcon imageIcon2 = new ImageIcon(image2);
+
+        int imageWidth = imageIcon1.getIconWidth() + imageIcon2.getIconWidth();
+        int imageHeight = Math.max(imageIcon1.getIconHeight(), imageIcon2.getIconHeight());
+        BufferedImage combinedImage = new BufferedImage(imageWidth, imageHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = combinedImage.createGraphics();
+
+        g.setColor(Color.WHITE);
+        g.fillRect(0, 0, imageWidth, imageHeight);
+        g.drawImage(imageIcon1.getImage(), 0, 0, null);
+        g.drawImage(imageIcon2.getImage(), imageIcon1.getIconWidth(), 0, null);
+        g.dispose();
+        return combinedImage;
+    }
+
+    static public int printImageOptions(BufferedImage image1, BufferedImage image2)
+    {
+        BufferedImage combinedImage = combineImages(image1, image2);
+
+        String[] options = {"Open New Image", "Next" ,"Exit"};
+        return showOptionDialog(null,null, "Display TIFF Image", JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE, new ImageIcon(combinedImage), options, options[0]);
     }
 
     static private int imageFileHeader() {
@@ -183,11 +339,11 @@ public class Main {
         int typeSize = dataTypeArray[typeIndex].size;
         switch (tagIndex) {
             case 256://ImageWidth
-                imageWidth = getInt(pdata, typeSize);
+                imageHeight = getInt(pdata, typeSize);
                 break;
             case 257://ImageLength
                 if (typeIndex == 3)//short
-                    imageLength = getInt(pdata, typeSize);
+                    imageWidth = getInt(pdata, typeSize);
                 break;
             case 273://StripOffsets
                 for (int i = 0; i < count; i++) {
@@ -201,12 +357,12 @@ public class Main {
     }
 
     static private void strips() {
-        color = new Color[imageLength * imageWidth];
+        color = new Color[imageWidth * imageHeight];
         index = stripOffsets.get(0);
         int R = 0;
         int G = 0;
         int B = 0;
-        for (int i = 0; i <= (imageWidth * imageLength) - 1; i++) {
+        for (int i = 0; i <= (imageHeight * imageWidth) - 1; i++) {
             int x = Byte.toUnsignedInt(data[index]);
             R = x;
             x = Byte.toUnsignedInt(data[index + 1]);
