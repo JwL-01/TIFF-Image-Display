@@ -20,7 +20,8 @@ File Input Landing Page. Allows the user to select a desired file to display the
 
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/521b2185-9861-4680-93c9-5f16be4acea8)
 
-User Interface
+User Interface:
+
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/de75afca-b5e5-4c65-b015-640431323c84)
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/e213ef1a-3caa-4656-972d-8909173e1342)
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/c62258c5-5a1e-4754-81ff-ea6917b0230c)
