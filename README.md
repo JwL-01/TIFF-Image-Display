@@ -14,7 +14,8 @@ The goal of this project was to learn how to create an application using Java, t
 
 **Demo**
 ---
-File Input Landing Page. ALlows the user to select a desired file to display the TIFF image.
+File Input Landing Page. Allows the user to select a desired file to display the TIFF image.
+
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/5c4c6ba6-0e26-45cd-bb68-c2649b2be0a0)
 
 ![image](https://github.com/JwL-01/TIFF-Image-Display/assets/38309953/521b2185-9861-4680-93c9-5f16be4acea8)
